@@ -1,7 +1,7 @@
 ;; When executed, this file will run a basic web server
 ;; on http://localhost:8080.
 
-(ns learnclj.form-params
+(ns clj-notes.form-params
   (:use ring.middleware.params
         ring.util.response
         ring.adapter.jetty))

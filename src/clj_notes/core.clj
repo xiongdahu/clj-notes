@@ -1,4 +1,4 @@
-(ns learnclj.core
+(ns clj-notes.core
   (:gen-class))
 
 ;Parameter is variable in the declaration of function.

@@ -2,7 +2,7 @@
 ;; on http://localhost:8080, which will tell you how many
 ;; times you have visited the page.
 
-(ns learnclj.ring-session
+(ns clj-notes.ring-session
   (:use ring.middleware.session
         ring.util.response
         ring.adapter.jetty))

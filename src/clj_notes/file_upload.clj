@@ -1,4 +1,4 @@
-(ns learnclj.file-upload
+(ns clj-notes.file-upload
   (:require [ring.middleware.params :refer :all]
             [ring.util.response :refer :all]
             [ring.middleware.multipart-params :refer :all]
