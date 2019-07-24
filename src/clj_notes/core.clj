@@ -1,25 +1,30 @@
 (ns clj-notes.core
   (:gen-class))
+;:gen-class generate java class file
 
 ;Parameter is variable in the declaration of function.
 ;Argument is the actual value of this variable that gets passed to function.
 ;
-;准备:在leiningen网站下载lein.bat,放到一个目录下
-;将目录添加到windows的path中
-;打开cmder,执行 lein self-install
-;leiningen安装完成后继续执行: lein repl
+;install leiningen:
+;put lein.bat in your PATH
+;open cmder,run: lein repl
+;start repl,use exit,(exit),(quit) or ctrl+d to quit repl
 (println "hello clojure")
 
 ;Symbols are used to bind names to values
 ;' will prevent a form from being evaluated
 ;'() same as (quote ())
 
-;def 定义全局变量
-;let 局部变量
+;def global variable
+;let local variable binding
 (def object "light")
+(println object)
+
 (let [x 10
       y 20
-      z 30])
+      z 30]
+  (+ x y z))
+;=> 60
 
 ;data collection
 ;seq is abstract for list vector array
@@ -34,6 +39,7 @@
 
 ;also you can use get on seq or map
 (get {:a 1 :b 2} :b)
+;=> 2
 ;clojure.core/seq is a function that produces a sequence over the given argument. 
 ;Data types that clojure.core/seq can produce a sequence over are called seqable:
 ;
@@ -75,7 +81,7 @@
 ;#' is the reader macro for var and works the exactly same
 (meta #'f)
 
-;fn create a function object
+;fn create a function
 (def f (fn [] (println "this is from fn function")))
 ;#() is the shortcut for fn
 (def plus-one #(+ 1 %))
@@ -162,14 +168,14 @@
 ;but :as preserves them (as a list, or as a vector)
 (def my-vec ["first" "second"])
 (let [{a 0 b 1} my-vec]
-  (println a b)) ;=> "first second"
+  (println a b))                                            ;=> "first second"
 
 ;optional arguments to functions
 (defn foo [a b & more-args]
   (println a b more-args))
-(foo :a :b) ;; => :a :b nil
-(foo :a :b :x) ;; => :a :b (:x)
-(foo :a :b :x :y :z) ;; => :a :b (:x :y :z)
+(foo :a :b)                                                 ;; => :a :b nil
+(foo :a :b :x)                                              ;; => :a :b (:x)
+(foo :a :b :x :y :z)                                        ;; => :a :b (:x :y :z)
 
 ;map destructuring
 (def my-hashmap {:a "A" :b "B" :c "C" :d "D"})
@@ -250,13 +256,14 @@
 (clojure.by.example/favorite-language)
 (use 'clojure.by.example)
 ;you can rename namespace
-(require '[clojure.by.example :as tempns])
+(require '[clojure.by.example :as temp-ns])
 
 ;ns macro creates a new namespace and gives you an opportunity to load other namespaces at the creation time
 
 ;import java class
 (import java.util.Date)
-
+(println (str  (new Date)))
+;Wed Jul 24 22:55:24 CST 2019
 
 ;boolean
 ;In Clojure, everything except false and nil are true.
@@ -388,7 +395,7 @@
 ;set
 #{1 2 3}
 ;discard
-{:a 1, #_#_ :b 2, :c 3}
+{:a 1, #_#_:b 2, :c 3}
 ;regular expression
 (re-matches #"^test$" "test")
 ;anonymous function
@@ -396,22 +403,22 @@
 ;var quote
 (read-string "#'foo")
 ;symbolic values
-(/ 1.0 0.0);##Inf
+(/ 1.0 0.0)                                                 ;##Inf
 ;tagged literals
-(type #inst "2014-05-19T19:12:37.925-00:00");java.util.Date
+(type #inst "2014-05-19T19:12:37.925-00:00")                ;java.util.Date
 ;meta
 (meta #'fn-name)
 ;reader conditionals 
-#?(:clj  (Clojure expression)
-   :cljs (ClojureScript expression)
-   :cljr (Clojure CLR expression)
+#?(:clj     (Clojure expression)
+   :cljs    (ClojureScript expression)
+   :cljr    (Clojure CLR expression)
    :default (fallthrough expression))
 ;#?@ splicing reader conditional
 (defn build-list []
   (list #?@(:clj  [5 6 7 8]
-            :cljs [1 2 3 4])));return [5 6 7 8] when run on clojure
+            :cljs [1 2 3 4])))                              ;return [5 6 7 8] when run on clojure
 ;#= allows the reader to evaluate an arbitrary form during read time
-(read-string "#=(+ 3 4)");7
+(read-string "#=(+ 3 4)")                                   ;7
 
 
 ;Recursion
@@ -587,7 +594,7 @@
 (new java.util.Date "2016/2/19")
 (java.util.Date.)
 (java.util.Date. "2016/2/19")
-(Math/pow 2 3) ;static method
+(Math/pow 2 3)                                              ;static method
 (def rnd (new java.util.Random))
 (. rnd nextInt 10)
 
@@ -615,37 +622,6 @@
 
 
 ;assoc-in associate使加入
-;
-
-;;;a ring file upload example
-(ns learnclj.core
-  (:require [ring.middleware.params :refer :all]
-            [ring.util.response :refer :all]
-            [ring.middleware.multipart-params :refer :all]
-            [ring.adapter.jetty :as jetty])
-  (:gen-class))
-
-(defn- num-lines
-  [file]
-  (with-open [rdr (clojure.java.io/reader file)]
-    (count (line-seq rdr))))
-
-(defn file-handler
-  [{{{tempfile :tempfile filename :filename} "file"} :params :as request}]
-  (println request)
-  (let [n (num-lines tempfile)]
-    (response (str "File " filename " has " n " lines "))))
-
-
-(defn -main
-  "I start a server which counts lines of text in your .txt files :)"
-  [& args]
-  (jetty/run-jetty (-> file-handler
-                       wrap-params
-                       wrap-multipart-params)
-                   {:port 3000}))
-
-;;;a ring file upload example ;;;end
 
 
 
