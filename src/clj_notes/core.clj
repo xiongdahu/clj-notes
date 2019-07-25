@@ -1,5 +1,6 @@
 (ns clj-notes.core
-  (:gen-class))
+  (:gen-class)
+  (:import (clojure.java.api Clojure)))
 ;:gen-class generate java class file
 
 ;Parameter is variable in the declaration of function.
@@ -40,7 +41,7 @@
 ;also you can use get on seq or map
 (get {:a 1 :b 2} :b)
 ;=> 2
-;clojure.core/seq is a function that produces a sequence over the given argument. 
+;clojure.core/seq is a function that produces a sequence over the given argument.
 ;Data types that clojure.core/seq can produce a sequence over are called seqable:
 ;
 ;Clojure collections
@@ -100,11 +101,11 @@
 (defn currency-of
   [{currency 'currency}]
   currency)
-;if want to destructing multi key,use :keys, in this case,parameter name(currency amount) 
+;if want to destructing multi key,use :keys, in this case,parameter name(currency amount)
 ;must same as arguments's keys(:currency :amount),can not use string as key
 (defn currency-of
   [{:keys [currency amount]}]
-  (* currency amount))
+  (println currency amount))
 
 (currency-of {:currency "RMB" :amount 100000})              ;ok
 (currency-of {"currency" "RMB" "amount" 100000})            ;currency will be nil,you will need use :strs or syms
@@ -140,10 +141,17 @@
 
 ;cation! arguments to job-info is not a map
 (job-info :name "Robert" :job "Engineer")
-;["Robert" "Engineer" "$0.00"]
-;Without the use of a variadic argument list, 
+;=> ["Robert" "Engineer" "$0.00"]
+
+;Without the use of a variadic argument list,
 ;you would have to call the function with a single map argument such as
-(job-info {:name "Robert" :job "Engineer"})
+(defn job-info-map
+  [{:keys [name job income] :or {job "unemployed" income "$0.00"}}]
+  (if name
+    [name job income]
+    (println "No name specified")))
+(job-info-map {:name "Robert" :job "Engineer"})
+;=> ["Robert" "Engineer" "$0.00"]
 
 ;destructuring example
 ;https://gist.github.com/john2x/e1dca953548bfdfb9844
@@ -198,6 +206,11 @@
 
 ;everything but false and nil evaluates to true in Clojure.
 
+(defn- num-lines
+  [file]
+  (with-open [rdr (clojure.java.io/reader file)]
+    (count (line-seq rdr))))
+
 ;:as bind entire map to param
 ;See https://github.com/ring-clojure/ring/wiki/File-Uploads for explanation
 (defn file-handler
@@ -206,7 +219,7 @@
   [{{{tempfile :tempfile filename :filename} "file"} :params :as request}]
   (println request)
   (let [n (num-lines tempfile)]
-    (response (str "File " filename " has " n " lines "))))
+    (println (str "File " filename " has " n " lines "))))
 
 ;a simple example
 (defn first-first
@@ -246,19 +259,15 @@
 
 ;namespace
 ;create-ns create a namespace
-(create-ns 'com.xiongdahu.clj)
-
 ;in-ns move to a namespace
 ;require loads a namespace and
 ;refer refers the namespace.
 ;To do these at once, you can use use
-(require 'clojure.by.example)
-(clojure.by.example/favorite-language)
-(use 'clojure.by.example)
 ;you can rename namespace
-(require '[clojure.by.example :as temp-ns])
+(require '[clj-notes.core :as temp-ns])
 
 ;ns macro creates a new namespace and gives you an opportunity to load other namespaces at the creation time
+
 
 ;import java class
 (import java.util.Date)
@@ -342,9 +351,9 @@
 (reverse [1 2 3])
 ;get a sequence of infinite integers with iterate. Be careful, 
 ;though. Running this example will freeze your terminal since the evaluation of this expression never returns.
-(doc iterate)
+;(doc iterate)
 
-(doc range)
+;(doc range)
 (repeatedly 5 (fn [] (println "hi!")))
 ;for each
 (doseq [animal ["cat" "dog" "horse"]] (println animal))
@@ -368,7 +377,7 @@
 (for [x '(1 2 3)]
   (+ 10 x))
 
-(doc for)
+;(doc for)
 ;双重for 循环
 (for [x (range 10)
       y (range 20)
@@ -391,13 +400,17 @@
   (let [factor (Math/pow 10 precision)]
     (/ (Math/floor (* d factor)) factor)))
 
-;# is Dispatch character that tells the Clojure reader how to interpret the next character using a read table
+;# is Dispatch character that tells the Clojure reader how to interpret the next character
+; using a read table
 ;set
 #{1 2 3}
 ;discard
 {:a 1, #_#_:b 2, :c 3}
+
 ;regular expression
 (re-matches #"^test$" "test")
+;=> "test"
+
 ;anonymous function
 #(println %)
 ;var quote
@@ -407,16 +420,21 @@
 ;tagged literals
 (type #inst "2014-05-19T19:12:37.925-00:00")                ;java.util.Date
 ;meta
+(defn fn-name
+  []
+  "hello")
 (meta #'fn-name)
+
 ;reader conditionals 
-#?(:clj     (Clojure expression)
-   :cljs    (ClojureScript expression)
-   :cljr    (Clojure CLR expression)
-   :default (fallthrough expression))
+;#?(:clj     (Clojure true)
+;   :cljs    (ClojureScript false)
+;   :default (fallthrough false))
+
 ;#?@ splicing reader conditional
-(defn build-list []
-  (list #?@(:clj  [5 6 7 8]
-            :cljs [1 2 3 4])))                              ;return [5 6 7 8] when run on clojure
+;(defn build-list []
+;  (list #?@(:clj  [5 6 7 8]
+;            :cljs [1 2 3 4])))                              ;return [5 6 7 8] when run on clojure
+
 ;#= allows the reader to evaluate an arbitrary form during read time
 (read-string "#=(+ 3 4)")                                   ;7
 
@@ -454,7 +472,7 @@
 ;In other words, a tail recursive function must return itself as it's returned value.
 ;When you use recur, it makes sure you are doing tail recursion
 
-(doc loop)
+;(doc loop)
 ;loop/recur is merely a friendly way to write recursion code.
 ;All imperative loops can be converted to recursions and all recursions can be converted to loops,
 ;so Clojure chose recursions.
@@ -549,7 +567,7 @@
               (println (realized? my-future))
               (Thread/sleep 1000)))
 
-(doc future)
+;(doc future)
 
 
 ;promise
