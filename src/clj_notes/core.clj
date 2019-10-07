@@ -3,9 +3,10 @@
   (:import (clojure.java.api Clojure)))
 ;:gen-class generate java class file
 
+;Param 和 Arg的区别
 ;Parameter is variable in the declaration of function.
 ;Argument is the actual value of this variable that gets passed to function.
-;
+
 ;install leiningen:
 ;put lein.bat in your PATH
 ;open cmder,run: lein repl
@@ -18,55 +19,14 @@
 
 ;def global variable
 ;let local variable binding
-(def object "light")
-(println object)
+(def gv "light")
+(println gv)
 
 (let [x 10
       y 20
       z 30]
   (+ x y z))
 ;=> 60
-
-;data collection
-;seq is abstract for list vector array
-;map
-(def dict {:k1 "v1" :k2 "v2"})
-;keyword as function
-(:k1 dict)                                                  ;return v1
-;map as function
-(dict :k1)                                                  ;return v1
-(let [v (dict :k1)]
-  (println v))
-
-;also you can use get on seq or map
-(get {:a 1 :b 2} :b)
-;=> 2
-;clojure.core/seq is a function that produces a sequence over the given argument.
-;Data types that clojure.core/seq can produce a sequence over are called seqable:
-;
-;Clojure collections
-;Java maps
-;All iterable types (types that implement java.util.Iterable)
-;Java collections (java.util.Set, java.util.List, etc)
-;Java arrays
-;All types that implement java.lang.CharSequence interface, including Java strings
-;All types that implement clojure.lang.Seqable interface
-;nil
-
-;function for seq or collection
-;=
-;count
-;conj
-;empty
-;seq
-;first
-;rest
-;next
-;count
-;counted?
-;conj
-;get
-;assoc
 
 
 ;defn 定义函数
@@ -89,6 +49,59 @@
 ;% will be replaced with arguments passed to the function
 ;%1 is for the first argument, %2 is for the second and so on
 
+;序列(sequence) 是clojure中重要的概念，序列包含三个重要特性方法：
+;(first coll),(next coll),(cons item seq),
+;一般还包括(rest coll),(more coll)两个方法(这些方法定义在clojure.lang.ISeq接口中)
+;可以生成序列的结构称为 seqable
+(def coll [])
+(let [s (seq coll)]
+  (if s
+    (comment "work on (first s) and recur on (rest s)")
+    (comment "all done - terminate")))
+;Sequence functions (map, filter, etc)implicitly call seq on the incoming (seqable) collection and
+;return a sequence (possibly empty, not nil)
+
+
+;几乎一切数据结构在clojure中都是序列，这些数据结构包括：
+;All iterable types (types that implement java.util.Iterable)
+;Java collections (java.util.Set, java.util.List, etc)
+;Java arrays
+;Java maps
+;All types that implement java.lang.CharSequence interface, including Java strings
+;nil
+;clojure.lang.ISeq - the sequence abstraction interface,更常用的是clojure.lang.ASeq,clojure.lang.LazySeq
+;clojure.lang.Seqable - seqable marker,只有一个方法:ISeq seq();
+;clojure.lang.Sequential - 遍历顺序和初始化顺序一致,Lists, vectors, and effectively all seqs are sequential.
+
+;clojure中4大数据结构,list是直接实现ISeq接口,而set,vector,map实现的是Seqable接口
+(seq nil)
+;;=> nil
+(seq ())
+;;=> nil
+(sequence ())
+;;=> ()
+(sequence nil)                                              ;(sequence nil) yields ()
+;;=> ()
+
+
+;;创建seq的函数
+;range,repeat,iterate,cycle,interleave(交错取值),interpose(给序列插入一个间隔值)
+
+;过滤序列
+(filter even? coll)
+(take-while even? coll)
+(drop-while even? coll)
+(split-with even? coll)
+;split-at,take-,drop-
+;every?,some,not-every?,not-any?,
+
+;序列转换
+;map,reduce,sort,sort-by,
+;(for)
+
+;modifiers
+
+;map
 (defn des
   [{k1 :k1}]                                                ;get :k1 value from argument (map) and binding it to k1(parameter)
   (println "destructing in map" k1))
@@ -200,12 +213,11 @@
   (println a b not-found all))
 ;; => A B :) {:a A :b B :c C :d D}
 
-;!!! There is no & rest for maps.
-
-
+;!!! There is no & rest func for maps.
 
 ;everything but false and nil evaluates to true in Clojure.
 
+;count file lines
 (defn- num-lines
   [file]
   (with-open [rdr (clojure.java.io/reader file)]
@@ -248,13 +260,10 @@
 (bar 5 6 3)
 
 
-(defn keyworded-map [& {:keys [function sequence]}]
+(defn keyword-map [& {:keys [function sequence]}]
   (map function sequence))
 
-(keyworded-map :sequence [1 2 3] :function #(+ % 2))
-
-;trampoline
-;trampoline
+(keyword-map :sequence [1 2 3] :function #(+ % 2))
 
 
 ;namespace
@@ -271,7 +280,7 @@
 
 ;import java class
 (import java.util.Date)
-(println (str  (new Date)))
+(println (str (new Date)))
 ;Wed Jul 24 22:55:24 CST 2019
 
 ;boolean
@@ -479,7 +488,8 @@
 ;Although you can write code that looks like an imperative loop with loop/recur,
 ;Clojure is doing recursion under the hood.
 
-;
+
+;宏
 (defmacro unless [test then]
   "Evaluates then when test evaluates to be falsey"
   (list 'if (list 'not test)
@@ -608,7 +618,7 @@
     (swap! user-record merge {:age 32}))
 
 
-;Java
+;调用Java
 (new java.util.Date "2016/2/19")
 (java.util.Date.)
 (java.util.Date. "2016/2/19")
@@ -628,7 +638,7 @@
 
 ;;;
 
-(defn geohash [lat lng]
+(defn geo-hash [lat lng]
   (println "geohash:" lat lng)
   ;;this function take two separate values as params.
   ;;and it return a geohash for that position
@@ -636,7 +646,7 @@
 
 (let [{:strs [lat lng] :as coord} {"lat" 51.503331, "lng" -0.119500}]
   (println "calculating geohash for coordinates: " coord)
-  (geohash lat lng))
+  (geo-hash lat lng))
 
 
 ;assoc-in associate使加入
