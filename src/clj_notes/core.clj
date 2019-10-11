@@ -3,9 +3,18 @@
   (:import (clojure.java.api Clojure)))
 ;:gen-class generate java class file
 
+;todo: trampolining
+;todo: STM
+;todo: 多重方法defmulti/defmethod
+;todo: 宏
+;todo: modifiers
+
 ;Param 和 Arg的区别
 ;Parameter is variable in the declaration of function.
 ;Argument is the actual value of this variable that gets passed to function.
+
+;!!! clojure中 逗号等于空白符
+;!!! everything but false and nil evaluates to true in Clojure
 
 ;install leiningen:
 ;put lein.bat in your PATH
@@ -27,6 +36,7 @@
       z 30]
   (+ x y z))
 ;=> 60
+
 
 
 ;defn 定义函数
@@ -92,67 +102,88 @@
 (take-while even? coll)
 (drop-while even? coll)
 (split-with even? coll)
+;assoc-in associate使加入
 ;split-at,take-,drop-
 ;every?,some,not-every?,not-any?,
 
 ;序列转换
 ;map,reduce,sort,sort-by,
+;(file-seq)
 ;(for)
 
-;modifiers
+;vector fn: conj nth count .indexOf
+;user=> (.indexOf [1 2 3] 4)
+;-1
 
-;map
+;user=> (count [1 2])
+;2
+
+;set fn: conj nth count disj sort contains? subset? superset?
+#{1 2 3}
+
+;map fn: assoc merge keys vals
+(let [os {:Apple "Mac" :Microsoft "Windows"}]
+  (get os :Apple))
+
+(assoc {:Apple "Mac" :Microsoft "Windows"} :Commodore "Amiga")
+
+
+;function and destructuring example
 (defn des
-  [{k1 :k1}]                                                ;get :k1 value from argument (map) and binding it to k1(parameter)
+  "args means get :k1 value from argument (map) and binding it to k1(parameter)"
+  [{k1 :k1}]
   (println "destructing in map" k1))
 
-(des dict)                                                  ;destructing in map v1
-;key don't have to be keyword
+;also you can destructuring from str/symbol key
 (defn currency-of
   [{currency "currency"}]
   currency)
 (defn currency-of
   [{currency 'currency}]
   currency)
-;if want to destructing multi key,use :keys, in this case,parameter name(currency amount)
-;must same as arguments's keys(:currency :amount),can not use string as key
+;可以用:keys,:strs,:syms一次性解构所有参数,形参和实参同名
 (defn currency-of
   [{:keys [currency amount]}]
   (println currency amount))
 
 (currency-of {:currency "RMB" :amount 100000})              ;ok
-(currency-of {"currency" "RMB" "amount" 100000})            ;currency will be nil,you will need use :strs or syms
+(currency-of {"currency" "RMB" "amount" 100000})            ;currency will be nil,you will need use :strs or :syms
 
+;:strs
 (defn currency-strs
   [{:strs [currency amount]}]
   currency)
 (currency-strs {"currency" "RMB" "amount" 100000})          ;ok
 
-
+;:syms
 (defn currency-syms
   [{:syms [currency amount]}]
   currency)
 (currency-syms {'currency "CNY" 'amount 100000})            ;ok
 
-;use :or to give a default value for parameter
+;默认值参数 use :or to give a default value for parameter
 (defn currency-or
   [{:keys [currency amount] :or {currency "USD"}}]
   currency)
 (currency-or {:amount 100000})                              ;=> "USD"
 
-;use & for Variadic Functions parameters
+;不定长参数 use & for Variadic Functions parameters
 (defn log
-  [message & args]
-  (println "args: " args))
+  "first arg is msg and other arguments are stored in args,args is a seq"
+  [msg & args]
+  (println "msg=" msg ",and rest args=" (map #(str "*" %1 "*") args)))
 
-;named params , achieved by Variadic Functions destructing
+;user=> (log "hi" "jim" "bella")
+;msg= hi ,and rest args= (*jim* *bella*)
+
+;命名参数 named params , achieved by Variadic Functions parameters destructing
 (defn job-info
   [& {:keys [name job income] :or {job "unemployed" income "$0.00"}}]
   (if name
     [name job income]
     (println "No name specified")))
 
-;cation! arguments to job-info is not a map
+;cation! 这里实参不是map
 (job-info :name "Robert" :job "Engineer")
 ;=> ["Robert" "Engineer" "$0.00"]
 
@@ -163,16 +194,17 @@
   (if name
     [name job income]
     (println "No name specified")))
+
 (job-info-map {:name "Robert" :job "Engineer"})
 ;=> ["Robert" "Engineer" "$0.00"]
 
-;destructuring example
-;https://gist.github.com/john2x/e1dca953548bfdfb9844
+; more example on destructing: https://gist.github.com/john2x/e1dca953548bfdfb9844
 (def my-vec [1 2 3])
 
 (let [[a b c d] my-vec]
   (println a b c d))
 ;1 2 3 nil
+
 (let [[a b & the-rest] my-vec]
   (println "a=" a "b=" b "the-rest=" the-rest))
 ;a= 1 b= 2 the-rest= (3)
@@ -185,8 +217,9 @@
 (let [[a b & the-rest :as all] my-vec]
   (println a b the-rest all))
 ;1 2 (3) [1 2 3]
-;note: & the-rest convert vector to list,
+;!!! note: & the-rest convert vector to list,
 ;but :as preserves them (as a list, or as a vector)
+
 (def my-vec ["first" "second"])
 (let [{a 0 b 1} my-vec]
   (println a b))                                            ;=> "first second"
@@ -215,8 +248,6 @@
 
 ;!!! There is no & rest func for maps.
 
-;everything but false and nil evaluates to true in Clojure.
-
 ;count file lines
 (defn- num-lines
   [file]
@@ -226,20 +257,33 @@
 ;:as bind entire map to param
 ;See https://github.com/ring-clojure/ring/wiki/File-Uploads for explanation
 (defn file-handler
-  ;表示入参是一个map,里面有:params这个key,将:params
+  "argument is a map,:as request binding the arg to request var,而
+  {{{tempfile :tempfile filename :filename} \"file\"} :params  是嵌套解构,即从实参取出:params
+  然后又从:params内部取出:filename和:tempfile,其中:tempfile是一个java.io.File"
   ;[{{{tempfile :tempfile filename :filename} "file"} :params :as request}]
   [{{{tempfile :tempfile filename :filename} "file"} :params :as request}]
   (println request)
   (let [n (num-lines tempfile)]
     (println (str "File " filename " has " n " lines "))))
 
-;a simple example
+;请求示例:
+;{...
+; :params
+;  {"file" {:filename     "words.txt"
+;           :content-type "text/plain"
+;           :tempfile     #object[java.io.File ...]
+;           :size         51}}
+; ...}
+
+;又一个嵌套解构的例子
 (defn first-first
+  "最外面的[]是表示参数,[[i _] _]表示实参必须一个二维以上的vector,只取第二维的第一个"
   [[[i _] _]]
   i)
-
-(first-first [[1 2] [3 4]])
-;return 1
+;user=> (first-first [[1 2] [3 4]])
+;1
+;user=> (first-first [[[1 2] [3 4]] [5 6]])
+;[1 2]
 
 ;(defn name doc-string? attr-map? [params*] prepost-map? body)
 ;(defn name doc-string? attr-map? ([params*] prepost-map? body) + attr-map?)
@@ -250,20 +294,18 @@
   (let [factor (Math/pow 10 precision)]
     (/ (Math/floor (* d factor)) factor)))
 
-;不定长参数
+
 ;重载函数
 (defn bar
+  "参数个数不同的重载,clojure还有更强大的defmulti/defmethod"
   ([a b] (bar a b 100))
   ([a b c] (* a b c)))
 
-(bar 5 6)
-(bar 5 6 3)
-
-
-(defn keyword-map [& {:keys [function sequence]}]
+;复习上面学过的命名参数
+(defn named-arg-fn [& {:keys [function sequence]}]
   (map function sequence))
-
-(keyword-map :sequence [1 2 3] :function #(+ % 2))
+;the arg is not a map!!!
+;(named-arg-fn :sequence [1 2 3] :function #(+ % 2))
 
 
 ;namespace
@@ -272,22 +314,13 @@
 ;require loads a namespace and
 ;refer refers the namespace.
 ;To do these at once, you can use use
+
 ;you can rename namespace
-(require '[clj-notes.core :as temp-ns])
+;(require '[clj-notes.core :as temp-ns])
 
 ;ns macro creates a new namespace and gives you an opportunity to load other namespaces at the creation time
 
 
-;import java class
-(import java.util.Date)
-(println (str (new Date)))
-;Wed Jul 24 22:55:24 CST 2019
-
-;boolean
-;In Clojure, everything except false and nil are true.
-(if 1
-  (println "it is true")
-  (println "will never print"))
 
 ;if
 (if true
@@ -307,7 +340,6 @@
     "no positive numbers"))
 
 ;when when-let case cond condp
-;
 (defn cond-test
   [n]
   (cond
@@ -318,7 +350,7 @@
 (cond-test 1000)
 
 
-;string
+;str
 (let [first "Hirokuni"
       last "Kim"]
   (str "My name is " first " " last))
@@ -331,56 +363,11 @@
   [x n]
   (reduce * (repeat n x)))
 
-;bigint,N is a literal for bigint
-(+ 9223372036854775807 10N)
-
-;list conj nth count
-'(1 2 3)
-;vector conj nth count .indexOf
-[1 2 3]
-(.indexOf [1 2 3] 4)
-
-(count [1 2])
-
-;set conj nth count disj sort contains? subset? superset?
-#{1 2 3}
-
-;map assoc merge keys vals
-(let [os {:Apple "Mac" :Microsoft "Windows"}]
-  (get os :Apple))
-
-(assoc {:Apple "Mac" :Microsoft "Windows"} :Commodore "Amiga")
-
-;Sequences are data types that abstract all more concrete data types with unified functions. 
-;These functions are called the Seq library in Clojure.
-;seq first rest cons concat map reduce into
-;To add an element to the head of sequence, use cons.
-(cons 4 [1 2 3])
-(into [] `(1 2 3))
-(reverse [1 2 3])
-;get a sequence of infinite integers with iterate. Be careful, 
-;though. Running this example will freeze your terminal since the evaluation of this expression never returns.
-;(doc iterate)
-
-;(doc range)
-(repeatedly 5 (fn [] (println "hi!")))
-;for each
-(doseq [animal ["cat" "dog" "horse"]] (println animal))
-
-(take 5 (range 0 100))
-(take-while neg? [-3 -2 -1 0 1 2 3])
-;drop will remove the first n elements
-(drop 5 (range 0 10))
-(drop-while neg? [-3 -2 -1 0 1 2 3])
-;(0 1 2 3)
-
-(remove pos? [-1 -2 3 4])
-;(-1 -2)
-
-(filter pos? [-1 2 3])
-(partition-by #(< 3 %) [1 2 3 4 5 6])
-(group-by #(< 3 %) [1 2 3 4 5 6 1 2 3])
-(println (take 5 (iterate inc 0)))
+;bigint,N is a literal for bigint,M is BigDecimal
+;user=> (+ 9223372036854775807 10N)
+;9223372036854775817N
+;user=> (+ 98765431123456789.1 10M)
+;9.87654311234568E16
 
 ;for compression
 (for [x '(1 2 3)]
@@ -403,18 +390,19 @@
       :when (even? y)]
   y)
 
-;meta data for function parameters
-(defn round
-  [^double d ^long precision]
-  (let [factor (Math/pow 10 precision)]
-    (/ (Math/floor (* d factor)) factor)))
 
+
+;# 的规则和用途===start
 ;# is Dispatch character that tells the Clojure reader how to interpret the next character
 ; using a read table
 ;set
 #{1 2 3}
-;discard
+
+;discard two following input
+;忽略:b 2
 {:a 1, #_#_:b 2, :c 3}
+;user=> {:a 1  #_ :b :c 2 :d 3}
+;{:a 1, :c 2, :d 3}
 
 ;regular expression
 (re-matches #"^test$" "test")
@@ -425,7 +413,9 @@
 ;var quote
 (read-string "#'foo")
 ;symbolic values
-(/ 1.0 0.0)                                                 ;##Inf
+(/ 1.0 0.0)
+;#Inf
+
 ;tagged literals
 (type #inst "2014-05-19T19:12:37.925-00:00")                ;java.util.Date
 ;meta
@@ -446,7 +436,7 @@
 
 ;#= allows the reader to evaluate an arbitrary form during read time
 (read-string "#=(+ 3 4)")                                   ;7
-
+;# 的规则和用途===nd
 
 ;Recursion
 ;simple recursion
@@ -457,7 +447,7 @@
     n
     (+ (fibo (- n 1)) (fibo (- n 2)))))
 ;do not do this!!! take a long time to finish
-(fibo 1000)
+;(fibo 1000)
 
 ;use recur
 (defn fibo-recur [iteration]
@@ -489,9 +479,9 @@
 ;Clojure is doing recursion under the hood.
 
 
-;宏
+;宏===
 (defmacro unless [test then]
-  "Evaluates then when test evaluates to be falsey"
+  "Evaluates then when test evaluates to be false"
   (list 'if (list 'not test)
         then))
 
@@ -510,7 +500,9 @@
 ;except it expands a sequence and splice the contents of 
 ;the sequence into the enclosing syntax-quoted data structure
 
-;thread first macro
+
+
+;thread first macro, here the thread means pipe
 (-> []
     (conj 1)
     (conj 2)
@@ -525,16 +517,15 @@
 ;且上一行的返回值会作为这一行第一个参数(这就是thread first)的first含义
 ;这里的thread是管道的意思,而不是并发编程的线程
 ;如果省略(),那么野生符号(bare symbol)和keyword都会当作一个函数调用,
-;例如,这里的.toUpperCase是bare symbol,等效于(.toUpperCase ,,,)
-;clojure中 逗号等于空白符,所以上面用,,,表示将会插入的参数(即"a b c d")
+;例如,这里的.toUpperCase是bare symbol,等效于(.toUpperCase args)
 (-> "a b c d"
     .toUpperCase
     (.replace "A" "X")
     (.split " ")
     first)
-;same as follow, ,,, is equals whitespace
+;the previous call same as follow, comma is equals whitespace
 (-> "a b c d"
-    (.toUpperCase,,,)
+    (.toUpperCase)
     (.replace "A" "X")
     (.split " ")
     first)
@@ -547,9 +538,9 @@
 ;上一行的结果作为最后一个参数插入,这叫thread last
 (defn calculate* []
   (->> (range 10)
-       (filter odd?,,,)
-       (map #(* % %),,,)
-       (reduce +,,,)))
+       (filter odd?)
+       (map #(* % %))
+       (reduce +)))
 
 ;如果想要指定每次插入的位置那么需要用 as->
 ;v是每一行的返回值的名称,这样你可以在下一行任意参数位置指定
@@ -559,11 +550,7 @@
       (.substring v 1))
 
 
-;
-;destructing
-({:keys [firstname lastname] :as person} {:firstname "John" :lastname "Smith"})
-
-
+;并发编程===start
 ;future and deref
 (let [future-val (future (inc 1))]
   (println (deref future-val)))
@@ -578,7 +565,6 @@
               (Thread/sleep 1000)))
 
 ;(doc future)
-
 
 ;promise
 (def my-promise (promise))
@@ -617,8 +603,16 @@
     (throw (Exception. "something wrong happens!"))
     (swap! user-record merge {:age 32}))
 
+;并发编程===end
+
+
 
 ;调用Java
+;import java class
+(import java.util.Date)
+(println (str (new Date)))
+;Wed Jul 24 22:55:24 CST 2019
+
 (new java.util.Date "2016/2/19")
 (java.util.Date.)
 (java.util.Date. "2016/2/19")
@@ -636,20 +630,11 @@
 ;(Classname/staticMethod args*)
 ;Classname/staticField
 
-;;;
 
-(defn geo-hash [lat lng]
-  (println "geohash:" lat lng)
-  ;;this function take two separate values as params.
-  ;;and it return a geohash for that position
-  )
-
-(let [{:strs [lat lng] :as coord} {"lat" 51.503331, "lng" -0.119500}]
-  (println "calculating geohash for coordinates: " coord)
-  (geo-hash lat lng))
+;=== 多重方法defmulti/defmethod
 
 
-;assoc-in associate使加入
+
 
 
 
