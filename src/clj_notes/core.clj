@@ -4,7 +4,7 @@
            (java.util Date Random)))
 ;:gen-class generate java class file
 
-;todo: trampolining http://jakemccrary.com/blog/2010/12/06/trampolining-through-mutual-recursion/
+;todo: trampolining( trampoline蹦床),尾递归优化 http://jakemccrary.com/blog/2010/12/06/trampolining-through-mutual-recursion/
 ;todo: STM
 ;todo: 多重方法defmulti/defmethod
 ;todo: modifiers
@@ -322,7 +322,8 @@
 ;you can rename namespace
 ;(require '[clj-notes.core :as temp-ns])
 
-;ns macro creates a new namespace and gives you an opportunity to load other namespaces at the creation time
+;ns macro creates a new namespace and
+; gives you an opportunity to load other namespaces at the creation time
 
 
 
@@ -503,12 +504,94 @@
 
 
 ;;;Java方法调用
-;(. instance method args*)
-;(.instanceMember instance args*)
-;(.instanceMember ClassName args*)
-;(.instanceField instance)
+;import
+;(import & import-symbols-or-lists)
+(import 'java.util.Date 'java.text.SimpleDateFormat)
+(import '[java.util Date Set])
+(ns clj-notes.core
+  (:import (java.util Set Date Calendar TimeZone)
+           (java.util.concurrent ConcurrentHashMap)))
+
+;new a instance
+(def sdf (new SimpleDateFormat "yyyy-MM-dd"))
+;or
+(def sdf-dot (SimpleDateFormat. "yyyy-MM-dd"))
+
+;call instance method
+(.parse sdf date-string)
+;or use dot-form, see more on below
+(. sdf parse "2019-10-03")
+
+;access static method/field
 ;(ClassName/staticMethod args*)
 ;(ClassName/staticField)
+
+;nested class
+(.getEnclosingClass java.util.Map$Entry)
+;-> java.util.Map
+
+;dot special form
+;all above java call style are expanded into calls to the dot operator (described below) at macroexpansion time.
+; The expansions are as follows
+(.instanceMember instance args*)
+;==> (. instance instanceMember args*)
+(.instanceMember ClassName args*)
+;==>(. (identity ClassName) instanceMember args*)
+(.-instanceField instance)
+;==> (. instance -instanceField)
+(ClassName/staticMethod args*)
+;==> (. ClassName staticMethod args*)
+(ClassName/staticField)
+;==> (. ClassName staticField)
+
+; general forms, dot read as 'in the scope of'
+;(. ClassName member)
+;(. instanceExpr member)
+; if the member is start with "-", it will resolve only as field access,不会被识别为方法
+
+
+;dot-dot
+(import 'java.util.Calendar)
+(. (. (Calendar/getInstance) getTimeZone) getDisplayName)
+;use .. macro chain the calls
+(.. (Calendar/getInstance)
+    getTimeZone
+    (getDisplayName true TimeZone/SHORT))
+
+; doto macro
+(doto calendar-obj
+  (.set Calendar/AM_PM Calendar/AM)
+  (.set Calendar/HOUR 0)
+  (.set Calendar/MINUTE 0)
+  (.set Calendar/SECOND 0)
+  (.set Calendar/MILLISECOND 0))
+
+
+; (memfn methodNm) 用于提示参数有这个methodNm
+(map (memfn getBytes) ["amit" "rob" "kyle"])
+;==
+(map #(.getBytes %) ["amit" "rob" "kyle"])
+; memfn 使用了反射,所以如果能够添加一个类型提示可以提高性能
+(time (dotimes [n 100000] (mapv (memfn toLowerCase) ["A" "B" "C"])))
+;"Elapsed time: 1188.276915 msecs"
+(time (dotimes [n 100000] (mapv (memfn ^String toLowerCase) ["A" "B" "C"])))
+;"Elapsed time: 74.903093 msecs"
+; see the source of memfn
+
+;bean convert java bean to map
+(bean (Calendar/getInstance))
+
+
+;;; java array
+(def tokens (.split "clojure.in.action" "\\."))
+;#'user/tokens
+;user=> (type tokens)
+;[Ljava.lang.String;
+; alength,aget,aset function for java array, caution! java array is mutable
+
+
+
+
 
 
 
@@ -745,5 +828,66 @@
 
 
 
+;todo: 补充oop中的多态知识点
+;;clojure的多态和多重方法defmulti/defmethod
+;java中的多态是通过方法重载来实现的,重载要求方法的参数个数或类型不同来实现. -- 静态分配
+;clojure中实现参数个数重载非常简单,上面已经见过.
+;clojure中的多态通过multi-method可以实现更为灵活的代码,clojure中一般不会用到多态,一旦用到,都是核心逻辑代码.
+;假设一个场景:一个print函数,希望这个函数可以支持nil,string,vector,map等多种类型的打印,在Java中可以通过参数类型重载实现多个print方法.
 
-;;多重方法defmulti/defmethod
+(comment
+  ;define a multi
+  ;dispatch-fn can be keyword since when arg is map
+  (defmulti multi-name docstring? attr-map? dispatch-fn & options)
+
+  ;define a multi-method
+  (defmethod multi-name dispatch-value & fn-tail)
+
+  ;get the multimethod dispatch map
+  (methods multi-name)
+  ;or use get-method on arg to check which method is dispatched
+  (get-method multi-name "mint.com")
+
+  ;remove multimehtod impl by remove-method and removeall-methods.
+
+  )
+
+;todo: trampolining( trampoline蹦床),尾递归优化 http://jakemccrary.com/blog/2010/12/06/trampolining-through-mutual-recursion/
+;蹦床运动解决的一个问题就是调用栈过深导致栈溢出.
+(declare my-odd?)
+
+(defn my-even? [n]
+  (if (zero? n)
+    true
+    (my-odd? (dec (Math/abs n)))))
+
+(defn my-odd? [n]
+  (if (zero? n)
+    false
+    (my-even? (dec (Math/abs n)))))
+
+;> (my-even? 10000)
+;Execution error (StackOverflowError) at user/my-even? (REPL:4).
+;这里就出现栈溢出,scala中同样有这个问题:
+(comment
+  "def foldR[A,B](as: List[A], b: B, f: (A,B) => B): B = as match {
+    case Nil => b
+    case h :: t => f(h,foldR(t,b,f))
+  }
+  "
+  )
+
+;clojure 通过 trampoline 函数解决这个问题
+
+(defn my-even? [n]
+  (if (zero? n)
+    true
+    #(my-odd? (dec (Math/abs n)))))
+
+(defn my-odd? [n]
+  (if (zero? n)
+    false
+    #(my-even? (dec (Math/abs n)))))
+
+;> (trampoline my-even? 10000)
+
